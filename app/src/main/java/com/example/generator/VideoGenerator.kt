@@ -387,16 +387,16 @@ class VideoGenerator {
                 val fullArabicText = combinedArabic.toString().trim()
                 val fullTranslationText = if (showTranslation) combinedTranslation.toString().trim() else null
 
-                onProgress(if (isArabic) "جاري ترميز صوت المقطع بدقة سينمائية..." else "Encoding popular clip audio...", 0.12f)
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة المجمع للآيات المشهورة بالذكاء الاصطناعي WhisperX")
+                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي لمجموع الآيات..." else "Aligning popular clip with WhisperX...", 0.12f)
+                val alignedSegments = alignWithWhisperX(destFile, audioUrl, fullArabicText)
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة مقطع السورة بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
+                
+                onProgress(if (isArabic) "جاري ترميز صوت المقطع بدقة سينمائية..." else "Encoding popular clip audio...", 0.18f)
                 val aacFileName = "popular_clip_${surah}_${startAyah}_${endAyah}_transcoded.m4a"
                 val aacFile = File(context.cacheDir, aacFileName)
                 val timeline = transcodeMp3ToAac(destFile.absolutePath, aacFile.absolutePath)
                 SystemDiagnosticTracker.addLog("TRANSCODE", "تم تحويل ترميز ملف المقطع المشهور وإعداد مسار اللوحات")
-
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة المجمع للآيات المشهورة بالذكاء الاصطناعي WhisperX")
-                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي لمجموع الآيات..." else "Aligning popular clip with WhisperX...", 0.18f)
-                val alignedSegments = alignWithWhisperX(aacFile, null, fullArabicText)
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة مقطع السورة بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
 
                 val ext = MediaExtractor().apply { setDataSource(aacFile.absolutePath) }
                 ext.selectTrack(0)
