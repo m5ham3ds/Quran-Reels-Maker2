@@ -81,6 +81,7 @@ fun PopularClipsScreen(
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val backgroundKeywords by settingsManager.backgroundKeywords.collectAsState(initial = emptySet())
+    val deletedBuiltinClips by settingsManager.deletedBuiltinClips.collectAsState(initial = emptySet())
     
     // 1. Audio Preview Player Setup
     val previewPlayer = remember { 
@@ -239,7 +240,10 @@ fun PopularClipsScreen(
     var showDiagnosticDialog by remember { mutableStateOf(false) }
     var diagnosticReportText by remember { mutableStateOf("") }
     var isRunningAudit by remember { mutableStateOf(false) }
+    var clipOptionsTarget by remember { mutableStateOf<CuratedClip?>(null) }
     var clipToDelete by remember { mutableStateOf<CuratedClip?>(null) }
+    var clipToEdit by remember { mutableStateOf<CuratedClip?>(null) }
+    var clipToRefresh by remember { mutableStateOf<CuratedClip?>(null) }
     val scope = rememberCoroutineScope()
 
     var customClipsJson by remember { mutableStateOf("[]") }
@@ -807,9 +811,9 @@ fun PopularClipsScreen(
 
         // Filtering list of clips
         val filteredClips = if (selectedCategory == "الكل" || selectedCategory == "All") {
-            baseClipsList
+            baseClipsList.filter { !deletedBuiltinClips.contains(it.id) }
         } else {
-            baseClipsList.filter { it.category == selectedCategory }
+            baseClipsList.filter { it.category == selectedCategory && !deletedBuiltinClips.contains(it.id) }
         }
 
         if (filteredClips.isEmpty()) {
@@ -845,7 +849,7 @@ fun PopularClipsScreen(
                         .padding(vertical = 6.dp)
                         .combinedClickable(
                             onClick = { selectedClip = if (isCurrentSelected) null else clip },
-                            onLongClick = { clipToDelete = clip }
+                            onLongClick = { clipOptionsTarget = clip }
                         )
                         .testTag("clip_card_${clip.id}")
                 ) {
@@ -1540,7 +1544,12 @@ fun PopularClipsScreen(
                 Button(
                     onClick = {
                         baseClipsList.remove(clipInfo)
-                        saveCustomClipsToSettings(baseClipsList.toList())
+                        if (clipInfo.id.startsWith("clip_custom")) {
+                            saveCustomClipsToSettings(baseClipsList.toList())
+                        } else {
+                            val newSet = deletedBuiltinClips.toMutableSet().apply { add(clipInfo.id) }
+                            scope.launch { settingsManager.saveDeletedBuiltinClips(newSet) }
+                        }
                         clipToDelete = null
                         if (selectedClip?.id == clipInfo.id) {
                             selectedClip = null
@@ -1554,6 +1563,246 @@ fun PopularClipsScreen(
             dismissButton = {
                 TextButton(onClick = { clipToDelete = null }) {
                     Text(if (isArabic) "لا ألغِ الأمر" else "No, Keep", color = TextSoftColor)
+                }
+            }
+        )
+    }
+
+    clipOptionsTarget?.let { clipInfo ->
+        AlertDialog(
+            onDismissRequest = { clipOptionsTarget = null },
+            containerColor = CardBg,
+            title = {
+                Text(
+                    text = if (isArabic) "خيارات المقطع الرائج" else "Clip Options",
+                    color = LuxuryGold,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = {
+                            clipToEdit = clipInfo
+                            clipOptionsTarget = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorderColor, contentColor = TextSoftColor),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (isArabic) "تعديل معلومات المقطع يدوياً" else "Edit Info Manually")
+                    }
+
+                    Button(
+                        onClick = {
+                            clipToRefresh = clipInfo
+                            clipOptionsTarget = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LuxuryGold.copy(alpha=0.2f), contentColor = LuxuryGold),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (isArabic) "تحديث البيانات بالذكاء الاصطناعي" else "Refresh with AI")
+                    }
+
+                    Button(
+                        onClick = {
+                            clipToDelete = clipInfo
+                            clipOptionsTarget = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x22F44336), contentColor = Color(0xFFFF8A80)),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (isArabic) "حذف المقطع" else "Delete Clip")
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { clipOptionsTarget = null }) {
+                    Text(if (isArabic) "إلغاء" else "Cancel", color = TextSoftColor)
+                }
+            }
+        )
+    }
+
+    clipToRefresh?.let { clipInfo ->
+        var isRefreshing by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { if (!isRefreshing) clipToRefresh = null },
+            containerColor = CardBg,
+            title = {
+                Text(
+                    text = if (isArabic) "تحديث البيانات بالذكاء الاصطناعي" else "Refresh with AI",
+                    color = LuxuryGold,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                if (isRefreshing) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        CircularProgressIndicator(color = LuxuryGold)
+                        Spacer(Modifier.height(12.dp))
+                        Text(if (isArabic) "جاري تحديث البيانات من النموذج..." else "Refreshing data...", color = TextSoftColor)
+                    }
+                } else {
+                    Text(
+                        text = if (isArabic) "سيتم إرسال رابط هذا المقطع إلى نموذج الذكاء الاصطناعي (Gemini) لاستخراج أحدث البيانات وأكثرها دقة لتحديث المقطع. هل تود المتابعة؟" else "This clip's link will be sent to Gemini to extract updated info. Continue?",
+                        color = TextMutedColor,
+                        fontSize = 14.sp
+                    )
+                }
+            },
+            confirmButton = {
+                if (!isRefreshing) {
+                    Button(
+                        onClick = {
+                            isRefreshing = true
+                            scope.launch {
+                                try {
+                                    val generator = com.example.generator.GeminiMetaGenerator()
+                                    val result = generator.analyzeClipUrl(context, clipInfo.audioUrl)
+                                    if (result != null) {
+                                        val updatedClip = clipInfo.copy(
+                                            reciter = result.reciterName,
+                                            title = result.title,
+                                            surah = result.surah,
+                                            ayahStart = result.startAyah,
+                                            ayahEnd = result.endAyah
+                                        )
+                                        
+                                        val index = baseClipsList.indexOfFirst { it.id == clipInfo.id }
+                                        if (index != -1) {
+                                            baseClipsList[index] = updatedClip
+                                            saveCustomClipsToSettings(baseClipsList.toList())
+                                        }
+                                        Toast.makeText(context, if (isArabic) "تم تحديث البيانات بنجاح!" else "Updated successfully!", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, if (isArabic) "تعذر جلب البيانات من النموذج" else "Failed to analyze clip URL", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, if (isArabic) "فشل التحديث: ${e.message}" else "Update failed", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isRefreshing = false
+                                    clipToRefresh = null
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = LuxuryGold)
+                    ) {
+                        Text(if (isArabic) "نعم، حدّث" else "Yes, Refresh")
+                    }
+                }
+            },
+            dismissButton = {
+                if (!isRefreshing) {
+                    TextButton(onClick = { clipToRefresh = null }) {
+                        Text(if (isArabic) "إلغاء" else "Cancel", color = TextSoftColor)
+                    }
+                }
+            }
+        )
+    }
+
+    clipToEdit?.let { clipInfo ->
+        var editTitle by remember { mutableStateOf(clipInfo.title) }
+        var editReciter by remember { mutableStateOf(clipInfo.reciter) }
+        var editSurah by remember { mutableStateOf(clipInfo.surah.toString()) }
+        var editStart by remember { mutableStateOf(clipInfo.ayahStart.toString()) }
+        var editEnd by remember { mutableStateOf(clipInfo.ayahEnd.toString()) }
+        var editUrl by remember { mutableStateOf(clipInfo.audioUrl) }
+        
+        AlertDialog(
+            onDismissRequest = { clipToEdit = null },
+            containerColor = CardBg,
+            title = {
+                Text(
+                    text = if (isArabic) "تعديل المقطع يدوياً" else "Edit Clip Manually",
+                    color = LuxuryGold,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text(if (isArabic) "العنوان" else "Title") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editReciter,
+                        onValueChange = { editReciter = it },
+                        label = { Text(if (isArabic) "اسم القارئ" else "Reciter Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editSurah,
+                        onValueChange = { editSurah = it.filter { c -> c.isDigit() } },
+                        label = { Text(if (isArabic) "رقم السورة" else "Surah No.") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = editStart,
+                            onValueChange = { editStart = it.filter { c -> c.isDigit() } },
+                            label = { Text(if (isArabic) "من آية" else "Start Ayah") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = editEnd,
+                            onValueChange = { editEnd = it.filter { c -> c.isDigit() } },
+                            label = { Text(if (isArabic) "إلى آية" else "End Ayah") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    OutlinedTextField(
+                        value = editUrl,
+                        onValueChange = { editUrl = it },
+                        label = { Text(if (isArabic) "رابط المقطع" else "Media URL") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val s = editSurah.toIntOrNull() ?: 1
+                        val a1 = editStart.toIntOrNull() ?: 1
+                        val a2 = editEnd.toIntOrNull() ?: 1
+                        val updatedClip = clipInfo.copy(
+                            title = editTitle,
+                            reciter = editReciter,
+                            surah = s,
+                            ayahStart = a1,
+                            ayahEnd = a2,
+                            audioUrl = editUrl
+                        )
+                        val index = baseClipsList.indexOfFirst { it.id == clipInfo.id }
+                        if (index != -1) {
+                            baseClipsList[index] = updatedClip
+                            saveCustomClipsToSettings(baseClipsList.toList())
+                        }
+                        clipToEdit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = LuxuryGold)
+                ) {
+                    Text(if (isArabic) "حفظ التعديلات" else "Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { clipToEdit = null }) {
+                    Text(if (isArabic) "إلغاء" else "Cancel", color = TextSoftColor)
                 }
             }
         )

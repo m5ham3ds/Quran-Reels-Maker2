@@ -1214,8 +1214,22 @@ class VideoGenerator {
     private fun downloadAudio(url: String, destFile: File) {
         synchronized(destFile.absolutePath.intern()) {
             if (destFile.exists() && destFile.length() > 0) return
+            
+            val fixedUrl = url
+                .replace(" ", "%20")
+                .replace("#", "%23")
+                .replace("|", "%7C")
+                .replace("^", "%5E")
+                .replace(">", "%3E")
+                .replace("<", "%3C")
+                .replace("\\", "%5C")
+                .replace("{", "%7B")
+                .replace("}", "%7D")
+                .replace("[", "%5B")
+                .replace("]", "%5D")
+                
             val request = Request.Builder()
-                .url(url)
+                .url(fixedUrl)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Android VideoGenerator")
                 .build()
             var retries = 0
@@ -1276,11 +1290,25 @@ class VideoGenerator {
             extractor.release()
             throw Exception("ملف الصوت فارغ أو غير صالح للاستخدام")
         }
-        extractor.selectTrack(0)
+        var audioTrackIdx = -1
+        for (i in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(i)
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+            if (mime.startsWith("audio/")) {
+                audioTrackIdx = i
+                break
+            }
+        }
+        if (audioTrackIdx == -1) {
+            extractor.release()
+            throw Exception("لم يتم العثور على مسار صوتي صالح في الملف")
+        }
+        
+        extractor.selectTrack(audioTrackIdx)
         if (extractStartUs != null) {
             extractor.seekTo(extractStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
         }
-        val inputFormat = extractor.getTrackFormat(0)
+        val inputFormat = extractor.getTrackFormat(audioTrackIdx)
         val mime = inputFormat.getString(MediaFormat.KEY_MIME) ?: "audio/mpeg"
         
         val isRawAudio = mime == "audio/raw" || mime == "audio/x-wav"

@@ -99,9 +99,30 @@ object SystemDiagnosticTracker {
         }
         sb.append("\n")
 
-        // 3. Permissions Diagnostics
+        // 3. App Settings & Custom Data
         sb.append("----------------------------------------------------\n")
-        sb.append("3. حالة أذونات التطبيق والوصول للذاكرة (Permissions Check)\n")
+        sb.append("3. إعدادات التطبيق والبيانات المخصصة (App Settings & Data)\n")
+        sb.append("----------------------------------------------------\n")
+        try {
+            val settingsManager = SettingsManager(context)
+            val deletedBuiltin = settingsManager.deletedBuiltinClips.first()
+            val customClipsJson = settingsManager.getCustomCuratedClipsSync()
+            var customClipsCount = 0
+            if (customClipsJson.isNotBlank() && customClipsJson != "[]") {
+                try {
+                    customClipsCount = org.json.JSONArray(customClipsJson).length()
+                } catch (e: Exception) {}
+            }
+            sb.append("- المقاطع الرائجة المخصصة (Custom Trending Clips): $customClipsCount\n")
+            sb.append("- المقاطع الرائجة الأساسية المحذوفة (Deleted Built-in Clips): ${deletedBuiltin.size}\n")
+        } catch (e: Exception) {
+            sb.append("- فشل في قراءة الإعدادات: ${e.message}\n")
+        }
+        sb.append("\n")
+
+        // 4. Permissions Diagnostics
+        sb.append("----------------------------------------------------\n")
+        sb.append("4. حالة أذونات التطبيق والوصول للذاكرة (Permissions Check)\n")
         sb.append("----------------------------------------------------\n")
         val permissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -123,9 +144,9 @@ object SystemDiagnosticTracker {
         }
         sb.append("\n")
 
-        // 4. File-System Directories & Cache Audit
+        // 5. File-System Directories & Cache Audit
         sb.append("----------------------------------------------------\n")
-        sb.append("4. فحص المجلدات والملفات المحلية (Local Directory Storage Audit)\n")
+        sb.append("5. فحص المجلدات والملفات المحلية (Local Directory Storage Audit)\n")
         sb.append("----------------------------------------------------\n")
         val cacheDir = context.cacheDir
         val cacheFilesCount = cacheDir.listFiles()?.size ?: 0
@@ -151,9 +172,9 @@ object SystemDiagnosticTracker {
         }
         sb.append("\n")
 
-        // 5. System Execution Logs Summary
+        // 6. System Execution Logs Summary
         sb.append("----------------------------------------------------\n")
-        sb.append("5. تفاصيل خطوة بخطوة لسير آخر عملية مونتاج (Process Trace Logs)\n")
+        sb.append("6. تفاصيل خطوة بخطوة لسير آخر عملية مونتاج (Process Trace Logs)\n")
         sb.append("----------------------------------------------------\n")
         val logs = getLogs()
         if (logs.isEmpty()) {

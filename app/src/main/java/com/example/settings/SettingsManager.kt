@@ -88,6 +88,7 @@ class SettingsManager(private val context: Context) {
         val ACTIVE_GENERATION_RECITER_ID = stringPreferencesKey("active_generation_reciter_id")
         val BACKGROUND_KEYWORDS = stringSetPreferencesKey("background_keywords")
         val CUSTOM_CURATED_CLIPS = stringPreferencesKey("custom_curated_clips")
+        val DELETED_BUILTIN_CLIPS = stringSetPreferencesKey("deleted_builtin_clips")
     }
 
     val pexelsApiKey: Flow<String> = context.dataStore.data.map { it[PEXELS_API_KEY] ?: "" }
@@ -185,6 +186,11 @@ class SettingsManager(private val context: Context) {
     val includeBasmalah: Flow<Boolean> = context.dataStore.data.map { it[INCLUDE_BASMALAH] ?: true }
     val activeGenerationReciterId: Flow<String> = context.dataStore.data.map { it[ACTIVE_GENERATION_RECITER_ID] ?: "ar.alafasy" }
     val backgroundKeywords: Flow<Set<String>> = context.dataStore.data.map { it[BACKGROUND_KEYWORDS] ?: emptySet() }
+    val deletedBuiltinClips: Flow<Set<String>> = context.dataStore.data.map { it[DELETED_BUILTIN_CLIPS] ?: emptySet() }
+
+    suspend fun saveDeletedBuiltinClips(clips: Set<String>) {
+        context.dataStore.edit { it[DELETED_BUILTIN_CLIPS] = clips }
+    }
 
     suspend fun savePexelsKey(key: String) {
         context.dataStore.edit { it[PEXELS_API_KEY] = key }
