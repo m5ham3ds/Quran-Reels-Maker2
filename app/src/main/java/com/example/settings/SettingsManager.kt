@@ -30,6 +30,7 @@ class SettingsManager(private val context: Context) {
         
         val TEXT_POSITION = stringPreferencesKey("text_position") // "Top", "Center", "Bottom"
         val TEXT_ALIGN = stringPreferencesKey("text_align") // "Center", "Left", "Right"
+        val TEXT_ANIMATION = stringPreferencesKey("text_animation") // "Fade", "SlideUp", "Scale", "None"
         
         val TRANSLATION_FONT_SIZE = intPreferencesKey("translation_font_size")
         val TRANSLATION_COLOR = stringPreferencesKey("translation_color")
@@ -111,6 +112,7 @@ class SettingsManager(private val context: Context) {
     
     val textPosition: Flow<String> = context.dataStore.data.map { it[TEXT_POSITION] ?: "Center" }
     val textAlign: Flow<String> = context.dataStore.data.map { it[TEXT_ALIGN] ?: "Center" }
+    val textAnimation: Flow<String> = context.dataStore.data.map { it[TEXT_ANIMATION] ?: "Fade" }
     
     val translationFontSize: Flow<Int> = context.dataStore.data.map { it[TRANSLATION_FONT_SIZE] ?: 25 }
     val translationColor: Flow<String> = context.dataStore.data.map { it[TRANSLATION_COLOR] ?: "#E0E0E0" }
@@ -255,6 +257,10 @@ class SettingsManager(private val context: Context) {
 
     suspend fun setTextAlign(value: String) {
         context.dataStore.edit { it[TEXT_ALIGN] = value }
+    }
+    
+    suspend fun setTextAnimation(value: String) {
+        context.dataStore.edit { it[TEXT_ANIMATION] = value }
     }
 
     suspend fun setTranslationFontSize(value: Int) {

@@ -1294,6 +1294,7 @@ fun FontFormattingScreen(settingsManager: SettingsManager, isArabic: Boolean) {
     
     val textPosition by settingsManager.textPosition.collectAsState(initial = "Center")
     val textAlign by settingsManager.textAlign.collectAsState(initial = "Center")
+    val textAnimation by settingsManager.textAnimation.collectAsState(initial = "Fade")
     
     val showTranslation by settingsManager.showTranslation.collectAsState(initial = true)
     val translationFontSize by settingsManager.translationFontSize.collectAsState(initial = 25)
@@ -1814,6 +1815,41 @@ fun FontFormattingScreen(settingsManager: SettingsManager, isArabic: Boolean) {
                                         color = if (isSelected) ScreenBg else TextSoftColor,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = LuxuryGold, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isArabic) "حركة دخول الجمل" else "Text Entrance Animation", color = TextSoftColor, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val animations = listOf("Fade" to (if(isArabic) "تلاشي" else "Fade"), "SlideUp" to (if(isArabic) "انزلاق" else "Slide Up"), "Scale" to (if(isArabic) "تكبير" else "Scale"), "None" to (if(isArabic) "بدون" else "None"))
+                        animations.forEach { (anim, label) ->
+                            val isSelected = textAnimation == anim
+                            Card(
+                                onClick = { scope.launch { settingsManager.setTextAnimation(anim) } },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) LuxuryGold else ScreenBg
+                                ),
+                                border = if (!isSelected) BorderStroke(1.dp, BorderColor) else null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) ScreenBg else TextSoftColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
                                     )
                                 }
                             }

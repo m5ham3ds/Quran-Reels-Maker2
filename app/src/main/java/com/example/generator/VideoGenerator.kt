@@ -158,6 +158,17 @@ class VideoGenerator {
         }
     }
 
+    private fun formatAyahSymbol(ayah: Int): String {
+        val arabicStr = ayah.toString()
+            .replace("0", "٠").replace("1", "١").replace("2", "٢")
+            .replace("3", "٣").replace("4", "٤").replace("5", "٥")
+            .replace("6", "٦").replace("7", "٧").replace("8", "٨")
+            .replace("9", "٩")
+        // U+06DD is the Arabic End of Ayah symbol, and numbers fit inside it in standard fonts.
+        // However, not all fonts render it correctly, so we'll use a reliable fallback with standard brackets.
+        return " ﴿$arabicStr﴾"
+    }
+
     suspend fun generateReel(
         context: Context,
         surah: Int,
@@ -205,6 +216,7 @@ class VideoGenerator {
             
             val textPosition = settingsManager.textPosition.first()
             val textAlign = settingsManager.textAlign.first()
+            val textAnimationType = settingsManager.textAnimation.first()
             
             val translationFontSize = settingsManager.translationFontSize.first()
             val translationColorStr = settingsManager.translationColor.first()
@@ -341,6 +353,8 @@ class VideoGenerator {
                             }
                         }
                     }
+                    
+                    text += formatAyahSymbol(ayah)
                     combinedArabic.append(text).append(" ")
                     
                     if (showTranslation) {
@@ -373,16 +387,16 @@ class VideoGenerator {
                 val fullArabicText = combinedArabic.toString().trim()
                 val fullTranslationText = if (showTranslation) combinedTranslation.toString().trim() else null
 
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة المجمع للآيات المشهورة بالذكاء الاصطناعي WhisperX")
-                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي لمجموع الآيات..." else "Aligning popular clip with WhisperX...", 0.12f)
-                val alignedSegments = alignWithWhisperX(destFile, audioUrl, fullArabicText)
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة مقطع السورة بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
-                
-                onProgress(if (isArabic) "جاري ترميز صوت المقطع بدقة سينمائية..." else "Encoding popular clip audio...", 0.18f)
+                onProgress(if (isArabic) "جاري ترميز صوت المقطع بدقة سينمائية..." else "Encoding popular clip audio...", 0.12f)
                 val aacFileName = "popular_clip_${surah}_${startAyah}_${endAyah}_transcoded.m4a"
                 val aacFile = File(context.cacheDir, aacFileName)
                 val timeline = transcodeMp3ToAac(destFile.absolutePath, aacFile.absolutePath)
                 SystemDiagnosticTracker.addLog("TRANSCODE", "تم تحويل ترميز ملف المقطع المشهور وإعداد مسار اللوحات")
+
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة المجمع للآيات المشهورة بالذكاء الاصطناعي WhisperX")
+                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي لمجموع الآيات..." else "Aligning popular clip with WhisperX...", 0.18f)
+                val alignedSegments = alignWithWhisperX(aacFile, null, fullArabicText)
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة مقطع السورة بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
 
                 val ext = MediaExtractor().apply { setDataSource(aacFile.absolutePath) }
                 ext.selectTrack(0)
@@ -402,8 +416,14 @@ class VideoGenerator {
                 SystemDiagnosticTracker.addLog("CHUNKS", "تقسيم المقطع المشهور إلى Smart Chunks للمزامنة البصرية")
                 val smartChunks = getSmartChunks(context, fullArabicText, fullTranslationText, alignedSegments, durationMs)
                 
-                val verseLabel = if (startAyah == endAyah) "الآية $startAyah" else "الآيات $startAyah-$endAyah"
-                verses.add(VerseData(verseLabel, fullArabicText, fullTranslationText, aacFile.absolutePath, durationUs, timeline, alignedSegments, smartChunks))
+                // Fetch Surah name for the title instead of 'الآيات x-y'
+                val surahName = try {
+                    fetchVerseInfo(surah, startAyah, "quran-uthmani").third
+                } catch(e: Exception) {
+                    "سورة $surah"
+                }
+                
+                verses.add(VerseData(surahName, fullArabicText, fullTranslationText, aacFile.absolutePath, durationUs, timeline, alignedSegments, smartChunks))
                 SystemDiagnosticTracker.addLog("PROCESS", "تم إعداد كارت مقطع الآيات المشهورة بنجاح مدة ${durationMs}ms")
             } else {
                 // 2. Download translation & audio files, then transcode to AAC/M4A for 100% video muxing compatibility
@@ -444,6 +464,8 @@ class VideoGenerator {
                             }
                         }
                     }
+
+                    text += formatAyahSymbol(ayah)
 
                     if (translation != null) {
                         val basmalahEnglishList = listOf(
@@ -973,6 +995,8 @@ class VideoGenerator {
                         verse.translation
                     }
                     
+                    val chunkTimeMs = currentTimeMs - (activeChunk?.startTimeMs?.toLong() ?: 0L)
+                    
                     val bitmap = createVerseBitmap(
                         surahName = verse.surahName,
                         text = chunkedText,
@@ -989,10 +1013,12 @@ class VideoGenerator {
                         textBgRadius = textBgRadius,
                         textPosition = textPosition,
                         textAlign = textAlign,
+                        textAnimationType = textAnimationType,
                         translationFontSize = translationFontSize,
                         translationColorStr = translationColorStr,
                         translationFontFamily = translationFontFamily,
-                        frameIndex = frameIndex
+                        frameIndex = frameIndex,
+                        chunkTimeMs = chunkTimeMs
                     )
                     
                     var inIdx = -1
@@ -1779,10 +1805,12 @@ class VideoGenerator {
         textBgRadius: Int,
         textPosition: String,
         textAlign: String,
+        textAnimationType: String,
         translationFontSize: Int,
         translationColorStr: String,
         translationFontFamily: String,
-        frameIndex: Long
+        frameIndex: Long,
+        chunkTimeMs: Long
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(720, 1280, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -1867,7 +1895,30 @@ class VideoGenerator {
         }
         canvas.drawText(surahName, 360f, 180f, surahPaint)
         
-        // 2. Typeface config
+        // 2. Typeface config & Animation Setup
+        val animDuration = 400L // 400ms entrance
+        var animAlpha = 1f
+        var animScale = 1f
+        var animTranslateY = 0f
+        
+        if (chunkTimeMs < animDuration && chunkTimeMs >= 0L) {
+            val progress = chunkTimeMs.toFloat() / animDuration.toFloat()
+            val easeOut = 1f - Math.pow((1f - progress).toDouble(), 3.0).toFloat()
+            when (textAnimationType) {
+                "Fade" -> {
+                    animAlpha = easeOut
+                }
+                "SlideUp" -> {
+                    animAlpha = easeOut
+                    animTranslateY = 40f * (1f - easeOut)
+                }
+                "Scale" -> {
+                    animAlpha = easeOut
+                    animScale = 0.85f + (0.15f * easeOut)
+                }
+            }
+        }
+        
         val tf = tfArabic
         
         val tColor = try {
@@ -1875,7 +1926,7 @@ class VideoGenerator {
         } catch (e: Exception) {
             Color.WHITE
         }
-        val alpha = (textOpacity * 255).toInt().coerceIn(0, 255)
+        val alpha = ((textOpacity * 255) * animAlpha).toInt().coerceIn(0, 255)
         val finalTextColor = Color.argb(alpha, Color.red(tColor), Color.green(tColor), Color.blue(tColor))
         
         val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1908,9 +1959,11 @@ class VideoGenerator {
         } catch (e: Exception) {
             Color.parseColor("#E0E0E0")
         }
+        val transFinalAlpha = (255 * animAlpha).toInt().coerceIn(0, 255)
+        val finalTransColor = Color.argb(transFinalAlpha, Color.red(transColor), Color.green(transColor), Color.blue(transColor))
         
         val transPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = transColor
+            color = finalTransColor
             this.textAlign = Paint.Align.LEFT
             typeface = getEnglishTypeface(context, translationFontFamily)
             this.textSize = translationFontSize.toFloat() * 1.8f
@@ -1938,10 +1991,18 @@ class VideoGenerator {
             else -> (1280f - totalHeight) / 2f
         }
         
+        canvas.save()
+        if (animScale != 1f || animTranslateY != 0f) {
+            val pivotX = 360f
+            val pivotY = startY + (totalHeight / 2f)
+            canvas.translate(0f, animTranslateY)
+            canvas.scale(animScale, animScale, pivotX, pivotY)
+        }
+        
         // 4. Draw Background Box
         if (showTextBg) {
             val bgColor = try { Color.parseColor(textBgColorStr) } catch (e: Exception) { Color.BLACK }
-            val bgAlpha = (textBgOpacity * 255).toInt().coerceIn(0, 255)
+            val bgAlpha = ((textBgOpacity * 255) * animAlpha).toInt().coerceIn(0, 255)
             val finalBgColor = Color.argb(bgAlpha, Color.red(bgColor), Color.green(bgColor), Color.blue(bgColor))
             
             val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1976,8 +2037,8 @@ class VideoGenerator {
             canvas.restore()
             
             val heartPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = transColor
-                this.alpha = 200
+                color = finalTransColor
+                this.alpha = (200 * animAlpha).toInt().coerceIn(0, 255)
                 textSize = 35f
                 this.textAlign = Paint.Align.CENTER
                 setShadowLayer(4f, 0f, 2f, Color.argb(200, 0, 0, 0))
@@ -1985,6 +2046,8 @@ class VideoGenerator {
             val heartY = transY + transSl.height + 60f
             canvas.drawText("♡", 360f, heartY, heartPaint)
         }
+        
+        canvas.restore() // Restore animation transform
         
         return bitmap
     }
