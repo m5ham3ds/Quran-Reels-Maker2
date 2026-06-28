@@ -282,15 +282,15 @@ class VideoGenerator {
                     downloadAudio(url, destFile)
                     SystemDiagnosticTracker.addLog("DOWNLOAD", "تم تحميل صوت البسملة بنجاح، الحجم: ${destFile.length()} بايت")
                     
-                    SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة البسملة مع WhisperX")
-                    val alignedSegments = alignWithWhisperX(destFile, url, basmalahText)
-                    SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة البسملة بنجاح، عدد الكلمات: ${alignedSegments.size}")
-                    
                     val aacFileName = "${actualReciterId}_basmalah_transcoded.m4a"
                     val aacFile = File(context.cacheDir, aacFileName)
                     SystemDiagnosticTracker.addLog("TRANSCODE", "تحويل صيغة صوت البسملة إلى AAC/M4A لضمان توافقية الدمج")
                     val timeline = transcodeMp3ToAac(destFile.absolutePath, aacFile.absolutePath)
                     SystemDiagnosticTracker.addLog("TRANSCODE", "اكتمل تحويل صوت البسملة بنجاح")
+
+                    SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء مواءمة البسملة مع WhisperX")
+                    val alignedSegments = alignWithWhisperX(aacFile, null, basmalahText)
+                    SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة البسملة بنجاح، عدد الكلمات: ${alignedSegments.size}")
                     
                     val ext = MediaExtractor().apply { setDataSource(aacFile.absolutePath) }
                     ext.selectTrack(0)
@@ -498,17 +498,17 @@ class VideoGenerator {
                 downloadAudio(url, destFile)
                 SystemDiagnosticTracker.addLog("DOWNLOAD", "تم تحميل تلاوة الآية $ayah بنجاح، الحجم: ${destFile.length()} بايت")
                 
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء المواءمة بالذكاء الاصطناعي WhisperX للآية $ayah")
-                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي (WhisperX)..." else "Aligning word timings with WhisperX AI...", 0.07f + (i * 0.2f / totalAyahs))
-                val alignedSegments = alignWithWhisperX(destFile, url, text)
-                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة الآية $ayah بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
-                
                 onProgress(if (isArabic) "جاري ترميز ملف الصوت بدقة سينمائية..." else "Encoding audio block dynamically...", 0.12f + (i * 0.2f / totalAyahs))
                 val aacFileName = "${actualReciterId}_${surah}_${ayah}_transcoded.m4a"
                 val aacFile = File(context.cacheDir, aacFileName)
                 SystemDiagnosticTracker.addLog("TRANSCODE", "تحويل ترميز الملف الصوتي للآية $ayah إلى AAC سينمائي")
                 val timeline = transcodeMp3ToAac(destFile.absolutePath, aacFile.absolutePath)
                 SystemDiagnosticTracker.addLog("TRANSCODE", "تم تحويل ترميز ملف الآية $ayah")
+
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "بدء المواءمة بالذكاء الاصطناعي WhisperX للآية $ayah")
+                onProgress(if (isArabic) "جاري مواءمة الكلمات بالذكاء الاصطناعي (WhisperX)..." else "Aligning word timings with WhisperX AI...", 0.07f + (i * 0.2f / totalAyahs))
+                val alignedSegments = alignWithWhisperX(aacFile, null, text)
+                SystemDiagnosticTracker.addLog("ALIGNMENT", "تمت مواءمة الآية $ayah بالكامل بنجاح. عدد الكلمات المسترجعة: ${alignedSegments.size}")
                 
                 val ext = MediaExtractor().apply { setDataSource(aacFile.absolutePath) }
                 ext.selectTrack(0)
