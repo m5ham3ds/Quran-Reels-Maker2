@@ -91,11 +91,11 @@ val SURAH_COUNTS = mapOf(1 to 7, 2 to 286, 3 to 200, 4 to 176, 5 to 120, 6 to 16
 // Color Palette for Dark Cinematic Feel
 val LuxuryGold = Color(0xFFD29E57)
 val SoftGold = Color(0xFFE5C085)
-val ScreenBg = Color(0xFF0F0F12)
-val CardBg = Color(0xFF18181D)
-val BorderColor = Color(0xFF282830)
-val TextSoftColor = Color(0xFFE0E0E6)
-val TextMutedColor = Color(0xFF9E9EA5)
+val ScreenBg: Color @Composable get() = androidx.compose.material3.MaterialTheme.colorScheme.background
+val CardBg: Color @Composable get() = androidx.compose.material3.MaterialTheme.colorScheme.surface
+val BorderColor: Color @Composable get() = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant
+val TextSoftColor: Color @Composable get() = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
+val TextMutedColor: Color @Composable get() = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ReelViewModel by viewModels()

@@ -1210,6 +1210,7 @@ fun PopularClipsScreen(
         var addEndStr by remember { mutableStateOf("1") }
         var addUrl by remember { mutableStateOf("") }
         var isYoutubeUrl by remember { mutableStateOf(false) }
+        var skipWhisperX by remember { mutableStateOf(false) }
         var addCategory by remember { mutableStateOf("سكينة") }
         var isExtracting by remember { mutableStateOf(false) }
 
@@ -1325,6 +1326,22 @@ fun PopularClipsScreen(
                         )
                     }
 
+                    if (isYoutubeUrl) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Checkbox(
+                                checked = skipWhisperX,
+                                onCheckedChange = { skipWhisperX = it },
+                                colors = CheckboxDefaults.colors(checkedColor = LuxuryGold)
+                            )
+                            Text(
+                                text = if (isArabic) "تخطي معالجة WhisperX (استخدام بيانات محفوظة محلياً إذا فشل Gemini مسبقاً)" else "Skip WhisperX (Use cached data if Gemini failed previously)",
+                                color = TextSoftColor,
+                                fontSize = 11.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
                     // Simple select category
                     Text(
                         text = if (isArabic) "التصنيف الروحي" else "Spiritual Theme",
@@ -1386,7 +1403,7 @@ fun PopularClipsScreen(
                                 try {
                                     Toast.makeText(context, if (isArabic) "جاري جلب المعلومات من خلال Gemini..." else "Fetching AI info...", Toast.LENGTH_LONG).show()
                                     val generator = com.example.generator.GeminiMetaGenerator()
-                                    val result = generator.analyzeClipUrl(context, addUrl)
+                                    val result = generator.analyzeClipUrl(context, addUrl, skipWhisperX)
                                     
                                     if (result != null) {
                                         addSurahStr = result.surah.toString()

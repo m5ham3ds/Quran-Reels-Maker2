@@ -36,6 +36,10 @@ data class ClipAnalysisResult(
 )
 
 class GeminiMetaGenerator {
+    companion object {
+        val whisperXCache = mutableMapOf<String, String>()
+    }
+
     private val client = OkHttpClient.Builder()
         // API Timeout to prevent cut-off
         .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
@@ -50,7 +54,7 @@ class GeminiMetaGenerator {
         }
         .build()
 
-    suspend fun analyzeClipUrl(context: Context, url: String): ClipAnalysisResult? = withContext(Dispatchers.IO) {
+    suspend fun analyzeClipUrl(context: Context, url: String, skipWhisperIfCached: Boolean = false): ClipAnalysisResult? = withContext(Dispatchers.IO) {
         val settingsManager = SettingsManager(context)
         var apiKey = settingsManager.geminiApiKey.first()
         val geminiModel = settingsManager.geminiModel.first()
@@ -65,12 +69,22 @@ class GeminiMetaGenerator {
         }
 
         SystemDiagnosticTracker.addLog("GEMINI", "بدء تحليل الرابط: $url")
-        SystemDiagnosticTracker.addLog("GEMINI", "جاري الاتصال بـ WhisperX Frontend لاستخراج النص...")
-
-        // 1. Call WhisperX to get transcription text to assist Gemini
+        
         var whisperText = ""
-        try {
-            val alignPayload = JSONObject().apply {
+        
+        if (skipWhisperIfCached) {
+            if (whisperXCache.containsKey(url)) {
+                whisperText = whisperXCache[url] ?: ""
+                SystemDiagnosticTracker.addLog("GEMINI", "تم استرجاع البيانات من الذاكرة المؤقتة، جاري تخطي WhisperX...")
+            } else {
+                throw Exception("لا توجد بيانات سابقة لهذا الرابط. يرجى إيقاف ميزة تخطي المعالجة والمحاولة من جديد.")
+            }
+        } else {
+            SystemDiagnosticTracker.addLog("GEMINI", "جاري الاتصال بـ WhisperX Frontend لاستخراج النص...")
+
+            // 1. Call WhisperX to get transcription text to assist Gemini
+            try {
+                val alignPayload = JSONObject().apply {
                 put("data", JSONArray().apply {
                     put(JSONObject.NULL) // file
                     put(url)             // url
@@ -150,6 +164,7 @@ class GeminiMetaGenerator {
                             } else textInfoText
                             
                             whisperText = "معلومات الفيديو:\n$videoInfoText\n\nالنص المستخرج من الفيديو:\n$fullText"
+                            whisperXCache[url] = whisperText
                             SystemDiagnosticTracker.addLog("GEMINI", "تم استخراج النص والمعلومات من WhisperX بنجاح.")
                         } else {
                             SystemDiagnosticTracker.addLog("GEMINI", "لم يتم العثور على نص كافٍ في بيانات WhisperX المسترجعة.")
@@ -167,6 +182,7 @@ class GeminiMetaGenerator {
             e.printStackTrace()
             SystemDiagnosticTracker.addLog("GEMINI", "خطأ أثناء الاتصال بـ WhisperX: ${e.message}")
         }
+        } // Closing brace for else block
 
         val savedPrompt = settingsManager.geminiPrompt.first()
         val prompt = savedPrompt.replace("[URL]", url).replace("[WHISPER_TEXT]", whisperText)

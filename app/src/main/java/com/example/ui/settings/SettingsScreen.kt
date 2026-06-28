@@ -28,6 +28,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.example.CardBg
+import com.example.LuxuryGold
+import com.example.ScreenBg
+import com.example.TextMutedColor
+import com.example.TextSoftColor
+import com.example.BorderColor
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,12 +81,6 @@ fun SettingsScreen(
             }
         }
     }
-
-    // App Colors matching MainActivity
-    val ScreenBg = Color(0xFF0F0F12)
-    val CardBg = Color(0xFF18181D)
-    val LuxuryGold = Color(0xFFD29E57)
-    val TextMutedColor = Color(0xFF9E9EA5)
 
     Box(
         modifier = Modifier
@@ -153,50 +153,6 @@ fun SettingsScreen(
                             Switch(
                                 checked = isDark,
                                 onCheckedChange = { scope.launch { settingsManager.setThemeMode(it) } },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = LuxuryGold,
-                                    checkedTrackColor = LuxuryGold.copy(alpha=0.4f)
-                                )
-                            )
-                        }
-
-                        HorizontalDivider(color = Color(0x15FFFFFF))
-
-                        // Translation switches
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = LuxuryGold.copy(alpha=0.2f),
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Visibility,
-                                        contentDescription = null,
-                                        tint = LuxuryGold
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isArabic) "ترجمة المعاني" else "Interpretive Translation",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp
-                                )
-                                Text(
-                                    text = if (isArabic) "عرض الترجمة الأجنبية تحت الآية" else "Append translated verses to screen",
-                                    color = TextMutedColor,
-                                    fontSize = 12.sp
-                                )
-                            }
-                            Switch(
-                                checked = showTrans,
-                                onCheckedChange = { scope.launch { settingsManager.setShowTranslation(it) } },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = LuxuryGold,
                                     checkedTrackColor = LuxuryGold.copy(alpha=0.4f)
