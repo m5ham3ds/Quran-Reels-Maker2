@@ -925,17 +925,6 @@ fun PopularClipsScreen(
                                                                     return@launch
                                                                 }
                                                                 cachedFiles?.forEach { it.delete() }
-                                                                
-                                                                val prefs = context.getSharedPreferences("SampleUrlsCache", android.content.Context.MODE_PRIVATE)
-                                                                val cachedUrl = prefs.getString("url_${safeId}", null)
-                                                                val cachedTime = prefs.getLong("time_${safeId}", 0L)
-                                                                val tenMinutesAgo = System.currentTimeMillis() - (10 * 60 * 1000)
-                                                                
-                                                                var targetAudioUrl = ""
-                                                                if (cachedUrl != null && cachedTime > tenMinutesAgo) {
-                                                                    com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تخطي الاتصال: استخدام رابط عينة محفوظ في ذاكرة التطبيق (صالح لـ 10 دقائق)")
-                                                                    targetAudioUrl = cachedUrl
-                                                                } else {
                                                                     com.example.generator.SystemDiagnosticTracker.clearLogs()
                                                                     com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "بدء جلب عينة المقطع من الرابط: ${clip.audioUrl}")
                                                                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -945,29 +934,20 @@ fun PopularClipsScreen(
                                                                     val result = whisperClient.processAudio(null, clip.audioUrl, "") { progress -> 
                                                                         com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE_WHISPER", progress)
                                                                     }
-                                                                    targetAudioUrl = result.audioUrl
-                                                                    if (targetAudioUrl.isNotBlank()) {
-                                                                        prefs.edit()
-                                                                            .putString("url_${safeId}", targetAudioUrl)
-                                                                            .putLong("time_${safeId}", System.currentTimeMillis())
-                                                                            .apply()
-                                                                    }
-                                                                }
-                                                                
-                                                                if (targetAudioUrl.isNotBlank()) {
-                                                                    com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تم الحصول على رابط الصوت: $targetAudioUrl. جاري التنزيل...")
-                                                                       
-                                                                    val fixedUrl = if (targetAudioUrl.contains("file=")) {
-                                                                        val prefix = "file="
-                                                                        val fileIdx = targetAudioUrl.indexOf(prefix)
-                                                                        val baseUrl = targetAudioUrl.substring(0, fileIdx + prefix.length)
-                                                                        val pathStr = targetAudioUrl.substring(fileIdx + prefix.length)
-                                                                        val encodedPath = pathStr.split("/").joinToString("/") { segment ->
-                                                                            java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
-                                                                        }
-                                                                        baseUrl + encodedPath
-                                                                    } else {
-                                                                        targetAudioUrl
+                                                                    if (result.audioUrl.isNotBlank()) {
+                                                                        com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تم الحصول على رابط الصوت: ${result.audioUrl}. جاري التنزيل...")
+                                                                        
+                                                                        val fixedUrl = if (result.audioUrl.contains("file=")) {
+                                                                            val prefix = "file="
+                                                                            val fileIdx = result.audioUrl.indexOf(prefix)
+                                                                            val baseUrl = result.audioUrl.substring(0, fileIdx + prefix.length)
+                                                                            val pathStr = result.audioUrl.substring(fileIdx + prefix.length)
+                                                                            val encodedPath = pathStr.split("/").joinToString("/") { segment ->
+                                                                                java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+                                                                            }
+                                                                            baseUrl + encodedPath
+                                                                        } else {
+                                                                            result.audioUrl
                                                                                 .replace(" ", "%20")
                                                                                 .replace("#", "%23")
                                                                                 .replace("|", "%7C")
@@ -1005,7 +985,7 @@ fun PopularClipsScreen(
                                                                             if (totalBytes < 1000 && totalBytes > 0) {
                                                                                 com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تحذير: الملف صغير جداً ($totalBytes بايت)، قد يكون صفحة خطأ.")
                                                                             }
-                                                                            val extension = targetAudioUrl.substringAfterLast('.', "mp3").take(4).replace(Regex("[^a-zA-Z0-9]"), "")
+                                                                            val extension = result.audioUrl.substringAfterLast('.', "mp3").take(4).replace(Regex("[^a-zA-Z0-9]"), "")
                                                                             val finalCachedFile = java.io.File(context.cacheDir, "sample_$safeId.$extension")
                                                                             val inputStream = response.body!!.byteStream()
                                                                             val outputStream = java.io.FileOutputStream(finalCachedFile)

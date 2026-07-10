@@ -53,7 +53,7 @@ class CrashReporter private constructor(
         } catch (inner: Throwable) {
             AppLogger.e(TAG, "CrashReporter internal failure", inner)
         } finally {
-            LogcatRingBuffer.stop()
+            LiveLogToFile.stop()
             if (defaultHandler != null) {
                 defaultHandler.uncaughtException(thread, throwable)
             } else {
@@ -103,7 +103,7 @@ class CrashReporter private constructor(
         sb.appendLine()
 
         sb.appendLine("---------- Logcat (Ring Buffer - منذ إقلاع التطبيق) ----------")
-        sb.appendLine(LogcatRingBuffer.snapshot())
+        sb.appendLine(LiveLogToFile.snapshot())
         sb.appendLine()
 
         sb.appendLine("---------- Logcat (تفريغ لحظي إضافي وقت الكراش) ----------")
@@ -288,7 +288,7 @@ class CrashReporter private constructor(
             if (installed) return
             installed = true
             val app = context.applicationContext
-            LogcatRingBuffer.start()
+            LiveLogToFile.start(app)
             val existing = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler(CrashReporter(app, existing))
             AppLogger.i(TAG, "CrashReporter installed successfully")
@@ -302,38 +302,60 @@ class CrashReporter private constructor(
  * هذا يضمن التقاط اللوج المؤدي مباشرة للكراش حتى لو أُنهيت العملية فجأة
  * قبل أن تُتاح فرصة تنفيذ "logcat -d" في لحظة الكراش نفسها.
  */
-private object LogcatRingBuffer {
-    private const val CAPACITY = 800
-    private val buffer = ArrayDeque<String>(CAPACITY)
-    private val lock = Any()
+private object LiveLogToFile {
     private val running = AtomicBoolean(false)
     private var process: java.lang.Process? = null
+    private var logThread: Thread? = null
 
-    fun start() {
+    fun start(context: Context) {
         if (!running.compareAndSet(false, true)) return
-        Thread({
+        logThread = Thread({
             try {
-                val pid = Process.myPid().toString()
-                val p = ProcessBuilder("logcat", "-v", "threadtime")
-                    .redirectErrorStream(true)
-                    .start()
-                process = p
-                BufferedReader(InputStreamReader(p.inputStream)).use { reader ->
-                    var line: String? = null
-                    while (running.get() && reader.readLine().also { line = it } != null) {
-                        val l = line ?: continue
-                        if (l.contains(pid)) {
-                            synchronized(lock) {
-                                if (buffer.size >= CAPACITY) buffer.poll()
-                                buffer.offer(l)
+                // Determine file path
+                var logFile: File? = null
+                try {
+                    val publicDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "Quran Reels ERROR")
+                    if (!publicDir.exists()) publicDir.mkdirs()
+                    logFile = File(publicDir, "live_logcat.txt")
+                } catch (e: Exception) {
+                    val fallbackDir = File(context.getExternalFilesDir(null), "Quran Reels ERROR")
+                    if (!fallbackDir.exists()) fallbackDir.mkdirs()
+                    logFile = File(fallbackDir, "live_logcat.txt")
+                }
+
+                if (logFile != null) {
+                    if (logFile.exists()) {
+                        logFile.delete()
+                    }
+                    logFile.createNewFile()
+
+                    val pid = Process.myPid().toString()
+                    val p = ProcessBuilder("logcat", "-v", "threadtime")
+                        .redirectErrorStream(true)
+                        .start()
+                    process = p
+
+                    val writer = PrintWriter(FileWriter(logFile, true), true)
+                    writer.println("========== QURAN REELS LIVE LOG START ==========")
+                    writer.println("Time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
+                    
+                    BufferedReader(InputStreamReader(p.inputStream)).use { reader ->
+                        var line: String? = null
+                        while (running.get() && reader.readLine().also { line = it } != null) {
+                            val l = line ?: continue
+                            if (l.contains(pid)) {
+                                writer.println(l)
                             }
                         }
                     }
+                    writer.close()
                 }
             } catch (e: Exception) {
-                AppLogger.e("LogcatRingBuffer", "Streaming logcat failed: ${e.message}")
+                AppLogger.e("LiveLogToFile", "Streaming logcat failed: ${e.message}")
             }
-        }, "LogcatRingBufferThread").apply {
+        }, "LiveLogToFileThread")
+        
+        logThread?.apply {
             isDaemon = true
             start()
         }
@@ -344,5 +366,7 @@ private object LogcatRingBuffer {
         process?.destroy()
     }
 
-    fun snapshot(): String = synchronized(lock) { buffer.joinToString("\n") }
+    fun snapshot(): String {
+        return "Live logcat is streaming directly to: Documents/Quran Reels ERROR/live_logcat.txt"
+    }
 }
