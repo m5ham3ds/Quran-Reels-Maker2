@@ -969,15 +969,9 @@ class VideoGenerator {
                 checkCancellationAndPause()
                 reportProgress(if (isArabic) "جاري تحميل مشاهد طبيعية متحركة عالية الجودة..." else "Downloading premium cinematic video loops...", 0.3f)
                 val directUrls = listOf(
-                    "https://assets.mixkit.co/videos/2213/2213-720.mp4",
-                    "https://assets.mixkit.co/videos/41576/41576-720.mp4",
-                    "https://assets.mixkit.co/videos/4075/4075-720.mp4",
-                    "https://assets.mixkit.co/videos/51585/51585-720.mp4",
-                    "https://assets.mixkit.co/videos/1186/1186-720.mp4"
-                ).shuffled()
-                val allChunks = verses.flatMap { it.chunks }
-                val targetCount = allChunks.size
-                val countToLoad = Math.min(targetCount, directUrls.size)
+                    "https://assets.mixkit.co/videos/preview/mixkit-vertical-shot-of-a-beautiful-waterfall-in-a-forest-43756-large.mp4"
+                )
+                val countToLoad = 1
                 SystemDiagnosticTracker.addLog("DOWNLOAD", "بدء تحميل خلفيات الطوارئ المباشرة. العدد المطلوب: $countToLoad")
                 for (vidIdx in 0 until countToLoad) {
                     if (isRetry && chunkIndexToReplace != -1 && vidIdx != chunkIndexToReplace) continue
@@ -1248,6 +1242,7 @@ class VideoGenerator {
                     }
                     
                     var bgFrameBitmap: Bitmap? = null
+                    val oldBgFrame = currentBgFrameForTransition
                     if (frameDecoder != null) {
                         try {
                             bgFrameBitmap = frameDecoder?.getNextFrame()
@@ -1327,7 +1322,7 @@ class VideoGenerator {
                     encoder.queueInputBuffer(inIdx, 0, img.planes[0].buffer.capacity() * 3/2, currentFramePts, 0)
                     
                     bitmap.recycle()
-                    bgFrameBitmap?.recycle()
+                    oldBgFrame?.recycle()
                 }
                 
                 try { frameDecoder?.release() } catch (ex: Exception) {}
@@ -1344,6 +1339,7 @@ class VideoGenerator {
             encoder.queueInputBuffer(eosIdx, 0, 0, totalReelDurationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
             
             previousVideoLastFrame?.recycle()
+            currentBgFrameForTransition?.recycle()
 
             val drainCompleted = drainLatch.await(5, TimeUnit.MINUTES)
             if (!drainCompleted) {
