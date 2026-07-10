@@ -855,7 +855,7 @@ class VideoGenerator {
                                         )
                                         val targetFile = File(context.cacheDir, "bg_video_$vidIdx.mp4")
                                         SystemDiagnosticTracker.addLog("DOWNLOAD", "بدء تحميل الخلفية ${vidIdx + 1} من أصل $numBackgroundVideos (Pexels)")
-                                        runCatching { downloadAudio(selectedVideoUrl, targetFile) }.onFailure { e -> SystemDiagnosticTracker.addLog("DOWNLOAD_ERROR", "فشل تحميل الفيديو: ${e.message}") }
+                                        runCatching { downloadAudio(selectedVideoUrl, targetFile, throwOnError = false) }.onFailure { e -> SystemDiagnosticTracker.addLog("DOWNLOAD_ERROR", "فشل تحميل الفيديو: ${e.message}") }
                                         downloadedVideoFiles.add(targetFile)
                                         SystemDiagnosticTracker.addLog("DOWNLOAD", "اكتمل تحميل الخلفية ${vidIdx + 1} بنجاح، الحجم: ${targetFile.length()} بايت. متبقي ${numBackgroundVideos - (vidIdx + 1)} خلفيات.")
                                     }
@@ -948,7 +948,7 @@ class VideoGenerator {
                                         )
                                         val targetFile = File(context.cacheDir, "bg_video_$vidIdx.mp4")
                                         SystemDiagnosticTracker.addLog("DOWNLOAD", "بدء تحميل الخلفية ${vidIdx + 1} من أصل $numBackgroundVideos (Pixabay)")
-                                        runCatching { downloadAudio(selectedVideoUrl, targetFile) }.onFailure { e -> SystemDiagnosticTracker.addLog("DOWNLOAD_ERROR", "فشل تحميل الفيديو: ${e.message}") }
+                                        runCatching { downloadAudio(selectedVideoUrl, targetFile, throwOnError = false) }.onFailure { e -> SystemDiagnosticTracker.addLog("DOWNLOAD_ERROR", "فشل تحميل الفيديو: ${e.message}") }
                                         downloadedVideoFiles.add(targetFile)
                                         SystemDiagnosticTracker.addLog("DOWNLOAD", "اكتمل تحميل الخلفية ${vidIdx + 1} بنجاح، الحجم: ${targetFile.length()} بايت. متبقي ${numBackgroundVideos - (vidIdx + 1)} خلفيات.")
                                     }
@@ -983,7 +983,7 @@ class VideoGenerator {
                         val targetFile = File(context.cacheDir, "bg_video_$vidIdx.mp4")
                         SystemDiagnosticTracker.addLog("DOWNLOAD", "بدء تحميل خلفية الطوارئ ${vidIdx + 1} من أصل $countToLoad")
                         try {
-                            downloadAudio(directUrls[vidIdx], targetFile)
+                            downloadAudio(directUrls[vidIdx], targetFile, throwOnError = false)
                         } catch (e: Exception) {
                             SystemDiagnosticTracker.addLog("DOWNLOAD_ERROR", "فشل تحميل فيديو الطوارئ: ${e.message}")
                         }
@@ -1551,7 +1551,7 @@ class VideoGenerator {
         return result
     }
 
-    private suspend fun downloadAudio(url: String, destFile: File) {
+    private suspend fun downloadAudio(url: String, destFile: File, throwOnError: Boolean = true) {
         if(true) {
             if (destFile.exists() && destFile.length() > 0) return
             
@@ -1628,13 +1628,13 @@ class VideoGenerator {
                     }
                 } catch (e: Exception) {
                     retries++
-                    if (retries >= 3) throw Exception("فشل تحميل الملفات من الخادم بعد ٣ محاولات لـ $url: ${e.message}")
+                    if (retries >= 3) { if (throwOnError) throw Exception("فشل تحميل الملفات من الخادم بعد ٣ محاولات لـ $url: ${e.message}") else return }
                     Thread.sleep(3000)
                 } finally {
                     if (tmpFile.exists()) tmpFile.delete()
                 }
             }
-            throw Exception("الرابط غير متاح أو لا يمكن الوصول إليه. رمز الخطأ الأخير: $lastErrorUrlCode لـ $url")
+            if (throwOnError) throw Exception("الرابط غير متاح أو لا يمكن الوصول إليه. رمز الخطأ الأخير: $lastErrorUrlCode لـ $url")
         }
     }
 

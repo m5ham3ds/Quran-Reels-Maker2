@@ -109,7 +109,7 @@ fun PopularClipsScreen(
             .setAllowCrossProtocolRedirects(true)
         
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(context, httpDataSourceFactory)))
             .build() 
     }
     var playingClipId by remember { mutableStateOf<String?>(null) }
