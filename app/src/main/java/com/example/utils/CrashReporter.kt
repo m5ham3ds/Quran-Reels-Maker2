@@ -214,10 +214,10 @@ class CrashReporter private constructor(
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Quran Reels/ERROR")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/Quran Reels ERROR")
             }
             val uri = appContext.contentResolver.insert(
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values
+                MediaStore.Files.getContentUri("external"), values
             ) ?: return false
             appContext.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(report.toByteArray())

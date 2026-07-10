@@ -1190,6 +1190,10 @@ class VideoGenerator {
             
             var previousVideoLastFrame: Bitmap? = null
             var currentBgFrameForTransition: Bitmap? = null
+            
+            val reusableVerseBitmap = Bitmap.createBitmap(vidWidth, vidHeight, Bitmap.Config.ARGB_8888)
+            val reusableCanvas = Canvas(reusableVerseBitmap)
+            var reusableArgb: IntArray? = null
 
             for ((idx, verse) in verses.withIndex()) {
                 reportProgress(if (isArabic) "جاري تصوير مشهدي الآية ${startAyah + idx}..." else "Rendering scenes for Ayah ${startAyah + idx}...", 0.5f + (idx * 0.4f / verses.size))
@@ -1263,7 +1267,7 @@ class VideoGenerator {
                     
                     val chunkTimeMs = currentTimeMs - (activeChunk?.startTimeMs?.toLong() ?: 0L)
                     
-                    val bitmap = createVerseBitmap(
+                    createVerseBitmap(
                         surahName = verse.surahName,
                         text = chunkedText,
                         translation = chunkedTranslation,
@@ -1306,7 +1310,9 @@ class VideoGenerator {
                         videoHeight = vidHeight,
                         bgTransitionEnabled = bgTransitionEnabled,
                         bgTransitionType = bgTransitionType,
-                        previousBgBitmap = previousVideoLastFrame
+                        previousBgBitmap = previousVideoLastFrame,
+                        bitmap = reusableVerseBitmap,
+                        canvas = reusableCanvas
                     )
                     
                     var inIdx = -1
@@ -1318,10 +1324,12 @@ class VideoGenerator {
                     }
                     
                     val img = encoder.getInputImage(inIdx)!!
-                    fillImageFromBitmap(img, bitmap)
+                    if (reusableArgb == null || reusableArgb.size != img.width * img.height) {
+                        reusableArgb = IntArray(img.width * img.height)
+                    }
+                    fillImageFromBitmap(img, reusableVerseBitmap, reusableArgb)
                     encoder.queueInputBuffer(inIdx, 0, img.planes[0].buffer.capacity() * 3/2, currentFramePts, 0)
                     
-                    bitmap.recycle()
                     oldBgFrame?.recycle()
                 }
                 
@@ -1340,6 +1348,7 @@ class VideoGenerator {
             
             previousVideoLastFrame?.recycle()
             currentBgFrameForTransition?.recycle()
+            reusableVerseBitmap.recycle()
 
             val drainCompleted = drainLatch.await(5, TimeUnit.MINUTES)
             if (!drainCompleted) {
@@ -2170,10 +2179,11 @@ class VideoGenerator {
         videoHeight: Int = 1280,
         bgTransitionEnabled: Boolean = false,
         bgTransitionType: String = "dissolve",
-        previousBgBitmap: Bitmap? = null
-    ): Bitmap {
-        val bitmap = Bitmap.createBitmap(videoWidth, videoHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        previousBgBitmap: Bitmap? = null,
+        bitmap: Bitmap,
+        canvas: Canvas
+    ) {
+        bitmap.eraseColor(Color.TRANSPARENT)
         
         // 1. Draw Background
         if (bgBitmap != null) {
@@ -2484,11 +2494,9 @@ class VideoGenerator {
                 canvas.drawText("♡", videoWidth / 2f + (iconX.toFloat() * 2f * scale), heartY, iconPaint)
             }
         }
-        
-        return bitmap
     }
 
-    private fun fillImageFromBitmap(image: Image, bitmap: Bitmap) {
+    private fun fillImageFromBitmap(image: Image, bitmap: Bitmap, reusableArgb: IntArray? = null) {
         val imgWidth = image.width
         val imgHeight = image.height
         
@@ -2498,7 +2506,7 @@ class VideoGenerator {
             bitmap
         }
         
-        val argb = IntArray(imgWidth * imgHeight)
+        val argb = if (reusableArgb != null && reusableArgb.size == imgWidth * imgHeight) reusableArgb else IntArray(imgWidth * imgHeight)
         scaledBitmap.getPixels(argb, 0, imgWidth, 0, 0, imgWidth, imgHeight)
         
         if (scaledBitmap != bitmap) {
@@ -3436,6 +3444,9 @@ class SequentialFrameDecoder(private val videoPath: String) {
     private val bufferInfo = MediaCodec.BufferInfo()
     private var isEOS = false
 
+    private var reusablePixels: IntArray? = null
+    private var reusableBitmap: Bitmap? = null
+
     init {
         try {
             val ext = MediaExtractor()
@@ -3540,8 +3551,15 @@ class SequentialFrameDecoder(private val videoPath: String) {
         val uPixelStride = uPlane.pixelStride
         val vPixelStride = vPlane.pixelStride
         
-        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(w * h)
+        if (reusableBitmap == null || reusableBitmap!!.width != w || reusableBitmap!!.height != h) {
+            reusableBitmap?.recycle()
+            reusableBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        }
+        if (reusablePixels == null || reusablePixels!!.size != w * h) {
+            reusablePixels = IntArray(w * h)
+        }
+        val bitmap = reusableBitmap!!
+        val pixels = reusablePixels!!
         
         var index = 0
         for (y in 0 until h) {
@@ -3581,6 +3599,9 @@ class SequentialFrameDecoder(private val videoPath: String) {
             extractor?.release()
         } catch (e: Exception) {}
         extractor = null
+        reusableBitmap?.recycle()
+        reusableBitmap = null
+        reusablePixels = null
     }
 }
 

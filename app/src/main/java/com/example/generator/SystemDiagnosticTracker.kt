@@ -106,14 +106,10 @@ object SystemDiagnosticTracker {
                 put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Quran Reels/ERROR")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOCUMENTS + "/Quran Reels ERROR")
                 }
             }
-            val collection = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            } else {
-                android.provider.MediaStore.Files.getContentUri("external")
-            }
+            val collection = android.provider.MediaStore.Files.getContentUri("external")
             val uri = context.contentResolver.insert(collection, values)
             if (uri != null) {
                 context.contentResolver.openOutputStream(uri)?.use { out ->
