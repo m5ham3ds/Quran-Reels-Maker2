@@ -1550,10 +1550,21 @@ class VideoGenerator {
         if(true) {
             if (destFile.exists() && destFile.length() > 0) return
             
-            val fixedUrl = url
+            val fixedUrl = if (url.contains("file=")) {
+                val prefix = "file="
+                val fileIdx = url.indexOf(prefix)
+                val baseUrl = url.substring(0, fileIdx + prefix.length)
+                val pathStr = url.substring(fileIdx + prefix.length)
+                val encodedPath = pathStr.split("/").joinToString("/") { segment ->
+                    java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+                }
+                baseUrl + encodedPath
+            } else {
+                url
                 .replace(" ", "%20")
                 .replace("#", "%23")
                 .replace("|", "%7C")
+                .replace("｜", "%EF%BD%9C")
                 .replace("^", "%5E")
                 .replace(">", "%3E")
                 .replace("<", "%3C")
@@ -1562,6 +1573,7 @@ class VideoGenerator {
                 .replace("}", "%7D")
                 .replace("[", "%5B")
                 .replace("]", "%5D")
+            }
                 
             val request = Request.Builder()
                 .url(fixedUrl)

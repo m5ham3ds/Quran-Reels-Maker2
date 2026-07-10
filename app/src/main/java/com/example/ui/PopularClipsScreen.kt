@@ -937,19 +937,31 @@ fun PopularClipsScreen(
                                                                     if (result.audioUrl.isNotBlank()) {
                                                                         com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تم الحصول على رابط الصوت: ${result.audioUrl}. جاري التنزيل...")
                                                                         
-                                                                        val fixedUrl = result.audioUrl
-                                                                            .replace(" ", "%20")
-                                                                            .replace("#", "%23")
-                                                                            .replace("|", "%7C")
-                                                                            .replace("^", "%5E")
-                                                                            .replace(">", "%3E")
-                                                                            .replace("<", "%3C")
-                                                                            .replace("\\", "%5C")
-                                                                            .replace("{", "%7B")
-                                                                            .replace("}", "%7D")
-                                                                            .replace("[", "%5B")
-                                                                            .replace("]", "%5D")
-                                                                            
+                                                                        val fixedUrl = if (result.audioUrl.contains("file=")) {
+                                                                            val prefix = "file="
+                                                                            val fileIdx = result.audioUrl.indexOf(prefix)
+                                                                            val baseUrl = result.audioUrl.substring(0, fileIdx + prefix.length)
+                                                                            val pathStr = result.audioUrl.substring(fileIdx + prefix.length)
+                                                                            val encodedPath = pathStr.split("/").joinToString("/") { segment ->
+                                                                                java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+                                                                            }
+                                                                            baseUrl + encodedPath
+                                                                        } else {
+                                                                            result.audioUrl
+                                                                                .replace(" ", "%20")
+                                                                                .replace("#", "%23")
+                                                                                .replace("|", "%7C")
+                                                                                .replace("｜", "%EF%BD%9C")
+                                                                                .replace("^", "%5E")
+                                                                                .replace(">", "%3E")
+                                                                                .replace("<", "%3C")
+                                                                                .replace("\\", "%5C")
+                                                                                .replace("{", "%7B")
+                                                                                .replace("}", "%7D")
+                                                                                .replace("[", "%5B")
+                                                                                .replace("]", "%5D")
+                                                                        }
+
                                                                         val request = okhttp3.Request.Builder()
                                                                             .url(fixedUrl)
                                                                             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -959,6 +971,16 @@ fun PopularClipsScreen(
                                                                         val client = okhttp3.OkHttpClient()
                                                                         val response = client.newCall(request).execute()
                                                                         if (response.isSuccessful && response.body != null) {
+                                                                            val contentType = response.body?.contentType()?.toString()?.lowercase() ?: ""
+                                                                            if (contentType.contains("text/html")) {
+                                                                                com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "فشل تنزيل العينة. الخادم أرجع صفحة ويب بدلاً من ملف صوت.")
+                                                                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                                                    Toast.makeText(context, if (isArabic) "فشل تنزيل العينة" else "Failed to download sample", Toast.LENGTH_SHORT).show()
+                                                                                    playingClipId = null
+                                                                                    isPreviewLoading = false
+                                                                                }
+                                                                                return@launch
+                                                                            }
                                                                             val totalBytes = response.body!!.contentLength()
                                                                             if (totalBytes < 1000 && totalBytes > 0) {
                                                                                 com.example.generator.SystemDiagnosticTracker.addLog("SAMPLE", "تحذير: الملف صغير جداً ($totalBytes بايت)، قد يكون صفحة خطأ.")
