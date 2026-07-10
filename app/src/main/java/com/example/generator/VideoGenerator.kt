@@ -1384,32 +1384,7 @@ class VideoGenerator {
             if (isPreviewMode) {
                 uri = Uri.fromFile(File(context.cacheDir, "playable_reel.mp4"))
             } else {
-                // 1. Direct custom directory save attempt as requested: /storage/emulated/0/Quran Reels
-                try {
-                    val customDir = File("/storage/emulated/0/Quran Reels")
-                if (!customDir.exists()) {
-                    customDir.mkdirs()
-                }
-                if (customDir.exists()) {
-                    val targetFile = File(customDir, "Quran_Reel_${System.currentTimeMillis()}.mp4")
-                    File(outputPath).copyTo(targetFile, overwrite = true)
-                    
-                    // Crucial: Scan file so it is indexed in the system media database & instantly visible in standard players/gallery!
-                    android.media.MediaScannerConnection.scanFile(
-                        context,
-                        arrayOf(targetFile.absolutePath),
-                        arrayOf("video/mp4"),
-                        null
-                    )
-                    
-                    uri = Uri.fromFile(targetFile)
-                }
-            } catch (e: Exception) {
-                com.example.utils.AppLogger.e("ExceptionCatch", "Exception caught: ${ e.message }", e)
-            }
-            
-            // 2. Fallback to standard MediaStore registration if Scoped Storage blocks raw file creation (this is 100% reliable on Android 10+ and places it in Movies directory)
-            if (uri == null) {
+                // Save using MediaStore (Standard and reliable on modern Android)
                 try {
                     val values = ContentValues().apply {
                         put(MediaStore.Video.Media.DISPLAY_NAME, "Quran_Reel_${System.currentTimeMillis()}.mp4")
@@ -1436,7 +1411,6 @@ class VideoGenerator {
                 } catch (e: Exception) {
                     com.example.utils.AppLogger.e("ExceptionCatch", "Exception caught: ${ e.message }", e)
                 }
-            }
             } // Close the else branch for isPreviewMode
             
             // 3. Absolute Fallback to Internal Cache to prevent failures (guarantees we always have a valid URI)

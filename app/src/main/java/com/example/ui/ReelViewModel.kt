@@ -276,23 +276,25 @@ class ReelViewModel(application: Application) : AndroidViewModel(application) {
                             
                             var rawSuccess = false
                             try {
-                                val detailsDir = java.io.File("/storage/emulated/0/Movies/Quran Reels/Details")
-                                if (!detailsDir.exists()) {
-                                    detailsDir.mkdirs()
+                                val values = android.content.ContentValues().apply {
+                                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "Quran_Reel_Publish_Details_${System.currentTimeMillis()}.txt")
+                                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                        put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Download/Quran Reels/Details")
+                                    }
                                 }
-                                if (detailsDir.exists()) {
-                                    val detailsFile = java.io.File(detailsDir, "Quran_Reel_Publish_Details_${System.currentTimeMillis()}.txt")
-                                    detailsFile.writeText(detailsContent, Charsets.UTF_8)
-                                    
-                                    // Let the system MediaScanner scan this file as well
-                                    android.media.MediaScannerConnection.scanFile(
-                                        app,
-                                        arrayOf(detailsFile.absolutePath),
-                                        arrayOf("text/plain"),
-                                        null
-                                    )
+                                val collection = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                                } else {
+                                    android.provider.MediaStore.Files.getContentUri("external")
+                                }
+                                val mUri = app.contentResolver.insert(collection, values)
+                                if (mUri != null) {
+                                    app.contentResolver.openOutputStream(mUri)?.use { out ->
+                                        out.write(detailsContent.toByteArray(Charsets.UTF_8))
+                                    }
                                     rawSuccess = true
-                                    AppLogger.d("DetailsWriter", "Saved details raw file successfully to: ${detailsFile.absolutePath}")
+                                    AppLogger.d("DetailsWriter", "Saved details using MediaStore to Downloads/Quran Reels/Details")
                                 }
                             } catch (e: Exception) {
                                 AppLogger.e("DetailsWriter", "Raw path write failed: ${e.message}. Using MediaStore insertion...")
