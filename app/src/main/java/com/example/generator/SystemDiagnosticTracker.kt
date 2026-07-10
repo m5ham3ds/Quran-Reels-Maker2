@@ -80,17 +80,6 @@ object SystemDiagnosticTracker {
             append("\n\n")
             append("--- Application Log (AppLogger) ---\n")
             append(com.example.utils.AppLogger.getLogs())
-            append("\n\n--- System Logcat Live Dump ---\n")
-            try {
-                val process = Runtime.getRuntime().exec("logcat -d")
-                val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    append(line).append("\n")
-                }
-            } catch(e: Exception) {
-                append("Failed to dump logcat: ${e.message}\n")
-            }
             append("\n\n--- Process Logs ---\n")
             for (log in getLogs()) {
                 append(log).append("\n")
@@ -117,11 +106,11 @@ object SystemDiagnosticTracker {
                 put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Download/Quran Reels/ERROR")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Quran Reels/ERROR")
                 }
             }
             val collection = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             } else {
                 android.provider.MediaStore.Files.getContentUri("external")
             }

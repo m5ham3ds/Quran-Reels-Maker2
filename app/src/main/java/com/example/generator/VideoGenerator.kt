@@ -969,11 +969,11 @@ class VideoGenerator {
                 checkCancellationAndPause()
                 reportProgress(if (isArabic) "جاري تحميل مشاهد طبيعية متحركة عالية الجودة..." else "Downloading premium cinematic video loops...", 0.3f)
                 val directUrls = listOf(
-                    "https://cdn.pixabay.com/video/2020/05/25/40141-424855909_large.mp4",
-                    "https://cdn.pixabay.com/video/2021/08/17/85376-590022879_large.mp4",
-                    "https://cdn.pixabay.com/video/2020/08/04/46369-447833005_large.mp4",
-                    "https://cdn.pixabay.com/video/2024/02/21/201306-915234978_large.mp4",
-                    "https://cdn.pixabay.com/video/2019/04/16/22802-331006509_large.mp4"
+                    "https://assets.mixkit.co/videos/2213/2213-720.mp4",
+                    "https://assets.mixkit.co/videos/41576/41576-720.mp4",
+                    "https://assets.mixkit.co/videos/4075/4075-720.mp4",
+                    "https://assets.mixkit.co/videos/51585/51585-720.mp4",
+                    "https://assets.mixkit.co/videos/1186/1186-720.mp4"
                 ).shuffled()
                 val allChunks = verses.flatMap { it.chunks }
                 val targetCount = allChunks.size

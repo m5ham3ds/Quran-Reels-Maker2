@@ -195,7 +195,7 @@ class CrashReporter private constructor(
 
     private fun writeViaPublicMoviesDir(fileName: String, report: String): Boolean {
         return try {
-            val moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
             val quranReelsDir = File(moviesDir, "Quran Reels/ERROR")
             if (!quranReelsDir.exists()) quranReelsDir.mkdirs()
             val file = File(quranReelsDir, fileName)
@@ -214,10 +214,10 @@ class CrashReporter private constructor(
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/Quran Reels/ERROR")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/Quran Reels/ERROR")
             }
             val uri = appContext.contentResolver.insert(
-                MediaStore.Files.getContentUri("external"), values
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values
             ) ?: return false
             appContext.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(report.toByteArray())
@@ -235,7 +235,7 @@ class CrashReporter private constructor(
         // getExternalFilesDir لا يحتاج أي صلاحية على أي إصدار أندرويد
         val candidateDirs = listOfNotNull(
             appContext.getExternalFilesDir(null)?.let { File(it, "DiagnosticLogs") },
-            appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { File(it, "ERROR") },
+            appContext.getExternalFilesDir(Environment.DIRECTORY_MOVIES)?.let { File(it, "ERROR") },
             appContext.getExternalFilesDir(null)?.let { File(it, "ERROR") }
         )
         for (dir in candidateDirs) {
