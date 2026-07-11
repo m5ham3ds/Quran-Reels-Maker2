@@ -458,7 +458,13 @@ fun VideoEditorScreen(
                 val density = androidx.compose.ui.platform.LocalDensity.current.density
                 val actualWidthDp = minOf(maxWidth, maxHeight * (9f / 16f))
                 val viewWidthPx = actualWidthDp.value * density
+                
                 val scalePx = viewWidthPx / 720f
+                val canvasScale = actualWidthDp.value / 720f
+                val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+                fun dpFromCanvas(v: Float) = androidx.compose.ui.unit.Dp(v * canvasScale)
+                fun spFromCanvas(v: Float) = with(currentDensity) { dpFromCanvas(v).toSp() }
+
 
                 if (videoFile.exists()) {
                     AndroidView(
@@ -547,7 +553,7 @@ fun VideoEditorScreen(
                     text = currentSurah,
                     fontFamily = currentSurahFont,
                     color = sColor.copy(alpha = surahNameOpacity),
-                    fontSize = 20.sp,
+                    fontSize = spFromCanvas(24f * 2f),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -577,14 +583,14 @@ fun VideoEditorScreen(
                         .border(if (selectedElement == "icon") 2.dp else 0.dp, if (selectedElement == "icon") LuxuryGold else Color.Transparent, RoundedCornerShape(4.dp))
                         .padding(8.dp)
                 ) {
-                    Text("♡", color = Color.White.copy(alpha = iconOpacity.coerceAtLeast(0.3f)), fontSize = iconSize.sp)
+                    Text("♡", color = Color.White.copy(alpha = iconOpacity.coerceAtLeast(0.3f)), fontSize = spFromCanvas(iconSize.toFloat() * 2f))
                 }
             }
 
 
             // Grouped Text Container (Matches Generator and Live Preview logic)
             Column(
-                modifier = Modifier.align(
+                modifier = Modifier.width(dpFromCanvas(624f)).align(
                     when (textPosition) {
                         "Top" -> Alignment.TopCenter
                         "Bottom" -> Alignment.BottomCenter
@@ -642,7 +648,7 @@ fun VideoEditorScreen(
                         text = currentArabic,
                         color = qColor.copy(alpha = textOpacity),
                         fontFamily = currentQuranFont,
-                        fontSize = (fontSize / 2).sp,
+                        fontSize = spFromCanvas(fontSize.toFloat() * 2f),
                         fontWeight = FontWeight.Bold,
                         textAlign = alignEnum
                     )
@@ -676,7 +682,7 @@ fun VideoEditorScreen(
                             text = currentEnglish,
                             color = tColor.copy(alpha = translationOpacity),
                             fontFamily = currentTransFont,
-                            fontSize = (translationFontSize / 2).sp,
+                            fontSize = spFromCanvas(translationFontSize.toFloat() * 2f),
                             fontWeight = FontWeight.Medium,
                             textAlign = alignEnum
                         )
